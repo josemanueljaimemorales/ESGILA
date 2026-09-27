@@ -5,7 +5,6 @@ const MODULES={
   'fuerza-fig':'modulos/fuerza-fig/index.html',
   rutinas:'modulos/rutinas/index.html',
   cargas:'modulos/cargas/index.html',
-  'gav-training':'modulos/gav-training/index.html'
 };
 const viewer=document.getElementById('viewer');
 const frame=document.getElementById('frame');
