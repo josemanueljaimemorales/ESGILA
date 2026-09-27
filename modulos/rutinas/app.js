@@ -2,6 +2,8 @@ let data = [];
 let NP = {};
 let OBL = [];
 let clubAthletes = new Set();
+let routineMeta = {};
+let athleteSheetMap = {};
 
 const screen = document.getElementById("screen");
 
@@ -12,15 +14,22 @@ const buffer = await res.arrayBuffer();
 const wb = XLSX.read(buffer);
 clubAthletes = await loadClubAthletes();
 data = XLSX.utils.sheet_to_json(wb.Sheets["BASEAPPRUTINAS"] || { });
-const npSheet = XLSX.utils.sheet_to_json(wb.Sheets["NP"] || { });
 OBL = [];
 data = data.filter(r=>clubAthletes.has(String(r["ATLETA"]||"").trim().toUpperCase()));
 
-npSheet.forEach(r=>{
-const keys = Object.keys(r);
-const name = (r[keys[0]]||"").toString().trim().toUpperCase();
-if(name && clubAthletes.has(name)) NP[name]=r;
-});
+// La hoja NP que venía en el Excel es histórica de AKC. Para ESGILA,
+// la nota de partida y los grupos se toman de la hoja individual de cada atleta.
+NP = {};
+routineMeta = {};
+const athleteSheets = wb.SheetNames.filter(s=>!["BASEAPPRUTINAS","Concentrado","NP","Dificultad","GRUPOS"].includes(s));
+for(const sheetName of athleteSheets){
+  const ws = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+  const athlete = String((rows[0]||[])[0]||"").trim().toUpperCase();
+  if(!athlete || !clubAthletes.has(athlete)) continue;
+  athleteSheetMap[athlete] = sheetName;
+  parseRoutineMeta(rows, athlete);
+}
 
 showHome();
 }
@@ -46,6 +55,62 @@ async function loadClubAthletes(){
     }catch(e){console.warn("No se pudo leer padrón ESGILA",url,e)}
   }
   return names;
+}
+
+function norm(v){ return String(v||"").trim().toUpperCase(); }
+
+function parseRoutineMeta(rows, athlete){
+  let current = "";
+  for(let i=0;i<rows.length;i++){
+    const row = rows[i] || [];
+    const first = norm(row[0]);
+    const apparatus = normalizeApparatusName(first);
+    if(apparatus){
+      current = apparatus;
+      if(!routineMeta[athlete]) routineMeta[athlete] = {};
+      if(!routineMeta[athlete][current]) routineMeta[athlete][current] = {np:"", grupos:""};
+      continue;
+    }
+    if(!current) continue;
+
+    // Encabezado de Nota D / NP (o Nota D / Saltos en salto).
+    let notaIdx=-1, npIdx=-1, gruposIdx=-1;
+    row.forEach((v,idx)=>{
+      const x=norm(v);
+      if(x==="NOTA D") notaIdx=idx;
+      if(x==="NP") npIdx=idx;
+      if(x==="GRUPOS") gruposIdx=idx;
+    });
+    if(notaIdx>=0 && i+1<rows.length){
+      const next=rows[i+1]||[];
+      if(npIdx>=0) routineMeta[athlete][current].np = cleanNumber(next[npIdx]);
+      else {
+        // En salto, la columna SALTOS contiene la nota de partida.
+        const saltosIdx=row.findIndex(v=>norm(v)==="SALTOS");
+        if(saltosIdx>=0) routineMeta[athlete][current].np = cleanNumber(next[saltosIdx]);
+      }
+    }
+    if(gruposIdx>=0 && i+1<rows.length){
+      routineMeta[athlete][current].grupos = cleanNumber((rows[i+1]||[])[gruposIdx]);
+    }
+  }
+}
+
+function cleanNumber(v){
+  if(v===null || v===undefined || v==="") return "";
+  const n=parseFloat(String(v).replace(",","."));
+  return Number.isFinite(n) ? n.toFixed(1) : String(v).trim();
+}
+
+function normalizeApparatusName(v){
+  const x=norm(v);
+  if(x==="PISO") return "PISO";
+  if(x==="ARZONES" || x==="ARZON") return "ARZON";
+  if(x==="ANILLOS" || x==="ANILLO") return "ANILLO";
+  if(x==="SALTO DE CABALLO" || x==="SALTO") return "SALTO DE CABALLO";
+  if(x==="PARALELAS" || x==="PARALELA") return "PARALELA";
+  if(x==="FIJA" || x==="BARRA FIJA") return "FIJA";
+  return "";
 }
 
 function showHome(){
@@ -88,27 +153,19 @@ screen.innerHTML += `<div class="button" onclick="showRutina('${name}','${ap}')"
 }
 
 function mapAparato(ap){
-ap=ap.toUpperCase();
-if(ap==="ARZON") return "ARZON";
-if(ap==="PARALELAS") return "PARALELA";
-if(ap==="ANILLOS") return "ANILLO";
-return ap;
+  return normalizeApparatusName(ap) || norm(ap);
 }
 
-function getNP(name, aparato){
-const row = NP[name.toUpperCase()];
-if(!row) return "";
-const key = mapAparato(aparato);
-const col = Object.keys(row).find(c=>c.toUpperCase().includes(key));
-if(!col) return "";
-let val = row[col];
-if(!isNaN(val)) return parseFloat(val).toFixed(1);
-return val;
+function getMeta(name, aparato){
+  const athlete=norm(name);
+  const key=mapAparato(aparato);
+  return (routineMeta[athlete] && routineMeta[athlete][key]) || {np:"", grupos:""};
 }
 
 function showRutina(name, aparato){
 const rutina = data.filter(d=>d["ATLETA"]===name && d["APARATO"]===aparato);
-const np = getNP(name, aparato);
+const meta = getMeta(name, aparato);
+const np = meta.np;
 
 // 🔹 SUMA VD
 let sumaVD = 0;
@@ -119,22 +176,11 @@ if(!isNaN(val)) sumaVD += val;
 
 // 🔹 BASE
 let dificultad = sumaVD;
-let grupos = 0;
+let grupos = meta.grupos;
 
-if(!isNaN(np) && sumaVD > 0){
-grupos = parseFloat(np) - sumaVD - 10;
-}
-
-// 🔥 REGLA FIG (GRUPOS MAX 2.0)
-if(grupos > 2){
-let exceso = grupos - 2;
-grupos = 2;
-dificultad += exceso;
-}
-
-// 🔹 FORMATO FINAL
+// La dificultad sigue calculándose a partir de los valores del Excel.
+// Los grupos se muestran exactamente como están registrados en la hoja del atleta.
 dificultad = dificultad ? dificultad.toFixed(1) : "";
-grupos = grupos ? grupos.toFixed(1) : "";
 
 let html = `<div class="back" onclick="showAparatos('${name}')">⬅️</div>`;
 html += `<h2>${name} - ${aparato}</h2>`;
