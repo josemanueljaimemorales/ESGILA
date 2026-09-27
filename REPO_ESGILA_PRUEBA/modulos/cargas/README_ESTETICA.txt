@@ -1,0 +1,1 @@
+Rediseño estético de la pantalla inicial de Cargas - Águilas KC / Kids Center. app.js se conserva sin modificaciones; solo se renovaron index.html, styles.css y el recurso logo.png.
