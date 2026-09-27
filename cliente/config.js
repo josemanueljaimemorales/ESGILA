@@ -14,5 +14,5 @@ window.CLIENTE = {
   },
   calendario: "",
   // Pega aquí el enlace real de OneDrive para "ENLACE A ARCHIVOS DE PLANIFICACIÓN Y HORARIOS".
-  onedrive: "https://1drv.ms/f/c/55b6a939d4276db6/IgBmS-Op427RQ4CuOHf0JfbYAX-HEEGigea0xBPuoOAEvQM"
+  onedrive: ""
 };
