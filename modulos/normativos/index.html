@@ -17,6 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="../../cliente/config.js"></script>
 <script src="../../cliente/theme.js"></script>
+<script src="../../cliente/xlsx-reader.js"></script>
 </head>
 <body>
 <header class="top"><div class="topin">
@@ -57,19 +58,88 @@ let db=null,currentApp="PISO",cloudReady=false;
 async function init(){
   setupLogo();
   setupIdentity();
-  setSync("busy","Cargando…");
+  setSync("busy","Leyendo Excel…");
   try{
-    const base=await fetch("database.json",{cache:"no-store"}).then(r=>{if(!r.ok)throw Error("No se encontró database.json");return r.json()});
-    const saved=localStorage.getItem("ESGILA_NORMATIVOS_DB");
-    db=saved?JSON.parse(saved):base;
+    const rows=await ESGILA_XLSX.read("NORMATIVOS_ESGILA.xlsx","NORMATIVOS");
+    db=buildDbFromRows(rows);
+    applyLocalOverridesIfCurrent();
     cloudReady=true;
-    setSync("ok","Guardado local");
+    setSync("ok","Excel ESGILA");
     renderAll();
   }catch(e){
     console.error(e);
-    setSync("","Error de carga");
-    alert("No se pudo cargar la base de Normativos. Revisa que database.json esté dentro de este módulo.");
+    try{
+      const base=await fetch("database.json",{cache:"no-store"}).then(r=>{if(!r.ok)throw Error("No se encontró respaldo");return r.json()});
+      db=base;
+      cloudReady=true;
+      setSync("ok","Respaldo local");
+      renderAll();
+    }catch(e2){
+      console.error(e2);
+      setSync("","Error de carga");
+      alert("No se pudo leer NORMATIVOS_ESGILA.xlsx. Revisa que el Excel esté dentro de este módulo.");
+    }
   }
+}
+function buildDbFromRows(rows){
+  if(!rows.length) throw Error("El Excel está vacío.");
+  const names=[];
+  for(let c=2;c<(rows[0]||[]).length;c++){
+    const name=String(rows[0][c]??"").trim();
+    if(name) names.push({name,column:c});
+  }
+  if(!names.length) throw Error("No se encontraron atletas en la fila 1 del Excel.");
+  const appSet=new Set(APPS);
+  const items=[];
+  let currentApp="",classification="";
+  const mapStatus=v=>({"Consolidado":"C","En proceso":"EP","Proyección":"P","N/A":"NA"}[String(v??"").trim()]||"NA");
+  for(let r=1;r<rows.length;r++){
+    const a=String(rows[r]?.[0]??"").trim();
+    const b=String(rows[r]?.[1]??"").trim();
+    if(appSet.has(a)){currentApp=a;classification="";continue}
+    if(!currentApp) continue;
+    if(a) classification=a;
+    if(!b) continue;
+    const status={};
+    names.forEach(n=>status[n.name]=mapStatus(rows[r]?.[n.column]));
+    items.push({
+      id:`${currentApp}-${r+1}`,
+      apparatus:currentApp,
+      classification,
+      element:b,
+      status
+    });
+  }
+  return {
+    version:"2.0",
+    sourceWorkbook:"NORMATIVOS_ESGILA.xlsx",
+    athletes:names.map(x=>({name:x.name,column:x.column})),
+    apparatus:APPS,
+    items,
+    statusLabels:{C:"Consolidado",EP:"En proceso",P:"Proyección",NA:"No adquirido"}
+  };
+}
+function sourceFingerprint(){
+  const base={
+    athletes:db.athletes.map(a=>a.name),
+    items:db.items.map(x=>[x.id,x.apparatus,x.classification,x.element,Object.values(x.status||{})])
+  };
+  let str=JSON.stringify(base),h=2166136261;
+  for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}
+  return (h>>>0).toString(16);
+}
+function applyLocalOverridesIfCurrent(){
+  try{
+    const raw=localStorage.getItem("ESGILA_NORMATIVOS_OVERRIDES");
+    if(!raw)return;
+    const saved=JSON.parse(raw);
+    if(saved.fingerprint!==sourceFingerprint())return;
+    Object.entries(saved.overrides||{}).forEach(([key,val])=>{
+      const [id,athlete]=key.split("|||");
+      const item=db.items.find(x=>x.id===id);
+      if(item&&item.status) item.status[athlete]=val;
+    });
+  }catch(e){console.warn("No se pudieron aplicar cambios locales",e)}
 }
 function setupLogo(){const box=document.getElementById("logoBox"),img=new Image();img.onload=()=>{box.innerHTML="";box.appendChild(img);img.className="logo";img.style.cssText="width:100%;height:100%;object-fit:contain;padding:0;border:0;background:transparent"};img.src="../../cliente/logo.png"}
 function setupIdentity(){if(window.CLIENTE){document.title="Normativos · "+(CLIENTE.nombre||"Gimnasio");document.querySelectorAll("[data-cliente-name]").forEach(e=>e.textContent=CLIENTE.nombre||"GIMNASIO");document.querySelectorAll("[data-cliente-subtitle]").forEach(e=>e.textContent=CLIENTE.subtitulo||"GIMNASIA ARTÍSTICA");}}
@@ -90,8 +160,17 @@ function resetFilters(){document.getElementById("classification").value="ALL";do
 async function saveCloud(){
   if(!cloudReady)return;
   try{
-    localStorage.setItem("ESGILA_NORMATIVOS_DB",JSON.stringify(db));
-    setSync("ok","Guardado local");
+    const overrides={};
+    db.items.forEach(item=>{
+      Object.entries(item.status||{}).forEach(([athlete,val])=>{
+        overrides[item.id+"|||"+athlete]=val;
+      });
+    });
+    localStorage.setItem("ESGILA_NORMATIVOS_OVERRIDES",JSON.stringify({
+      fingerprint:sourceFingerprint(),
+      overrides
+    }));
+    setSync("ok","Cambios locales");
     toast("Cambios guardados en este dispositivo");
   }catch(e){
     console.error(e);

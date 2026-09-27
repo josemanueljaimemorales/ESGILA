@@ -1,12 +1,12 @@
-# Módulo Normativos — White Label
+# Módulo Normativos — ESGILA
 
 Este módulo está contenido físicamente dentro del repositorio del cliente.
 
 - `index.html`: aplicación de normativos.
-- `database.json`: base inicial de normativos y atletas.
-- `NORMATIVOS_ESGILA.xlsx`: plantilla Excel que usa el generador del módulo.
+- `NORMATIVOS_ESGILA.xlsx`: **fuente principal de datos** que lee la aplicación al cargar.
+- `database.json`: respaldo de los datos del Excel para recuperación si el navegador no puede leer XLSX.
+- `../../cliente/xlsx-reader.js`: lector XLSX local, sin dependencia externa.
 - El logo se toma de `../../cliente/logo.png`.
-- No depende del repositorio de Normativos AKC ni de su Firebase.
-- Los cambios realizados desde la aplicación se guardan localmente en el dispositivo y pueden descargarse como JSON o Excel.
-
-Para otro gimnasio, se cambia la identidad en `cliente/config.js` y el archivo `cliente/logo.png`; el módulo permanece dentro del mismo repositorio.
+- No depende del repositorio de Normativos AKC ni de Firebase.
+- Si cambias atletas, elementos o estados en `NORMATIVOS_ESGILA.xlsx` y reemplazas el archivo en GitHub, la aplicación leerá esos cambios al volver a cargar.
+- Los cambios hechos desde la aplicación se guardan localmente; si el Excel cambia, el nuevo Excel tiene prioridad.

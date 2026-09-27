@@ -1,9 +1,48 @@
 let dataApp=[];
 let progress=JSON.parse(localStorage.getItem("progress")||"{}");
 
-fetch('data.json')
-.then(res=>res.json())
-.then(data=>{dataApp=data; showHome();});
+async function loadWorkbook(){
+  const rows=await ESGILA_XLSX.read("trabajo_gav.xlsx");
+  if(!rows.length) throw new Error("El Excel de GAV Training está vacío.");
+  const headers=rows[0].map(v=>String(v??"").trim().toUpperCase());
+  const col={};
+  headers.forEach((h,i)=>{if(h)col[h]=i;});
+  const apparatus=[
+    ["PISO","piso"],["ARZON","arzon"],["ANILLOS","anillos"],
+    ["SALTO","salto"],["PARALELAS","paralelas"],["FIJA","fija"]
+  ];
+  const out=[];
+  for(const row of rows.slice(1)){
+    const nombre=String(row[col.NOMBRE]??"").trim();
+    if(!nombre) continue;
+    const athlete={
+      nombre,
+      nivel: row[col.NIVEL]??"",
+      grupo: String(row[col.GRUPO]??"").trim(),
+      aparatos:{}
+    };
+    apparatus.forEach(([header,key])=>{
+      const raw=String(row[col[header]]??"");
+      athlete.aparatos[key]=raw.split(/\r?\n/)
+        .map(x=>x.trim()).filter(Boolean)
+        .map(nombre=>({nombre}));
+    });
+    out.push(athlete);
+  }
+  if(!out.length) throw new Error("No se encontraron atletas en trabajo_gav.xlsx.");
+  return out;
+}
+
+async function init(){
+  try{
+    document.getElementById("content").innerHTML="<div class='list'><div class='item'>Cargando trabajo_gav.xlsx…</div></div>";
+    dataApp=await loadWorkbook();
+    showHome();
+  }catch(e){
+    console.error(e);
+    document.getElementById("content").innerHTML="<div class='list'><div class='item'>No se pudo leer trabajo_gav.xlsx.</div></div>";
+  }
+}
 
 function save(){
  localStorage.setItem("progress",JSON.stringify(progress));
@@ -33,10 +72,10 @@ function showHome(){
 
 function showGroups(){
  setBack("showHome()");
- let groups=[...new Set(dataApp.map(a=>a.grupo))];
+ let groups=[...new Set(dataApp.map(a=>a.grupo).filter(Boolean))];
  let html="";
  groups.forEach(g=>{
-   html+=`<button onclick="showGroup('${g}')">${g}</button>`;
+   html+=`<button onclick="showGroup('${g.replace(/'/g,"\\'")}')">${g}</button>`;
  });
  document.getElementById("content").innerHTML=html;
 }
@@ -46,17 +85,17 @@ function showGroup(g){
  let aparatos=["piso","arzon","anillos","salto","paralelas","fija"];
  let html="";
  aparatos.forEach(a=>{
-   html+=`<button class='${a}' onclick="showGroupAparato('${g}','${a}')">${a.toUpperCase()}</button>`;
+   html+=`<button class='${a}' onclick="showGroupAparato('${g.replace(/'/g,"\\'")}','${a}')">${a.toUpperCase()}</button>`;
  });
  document.getElementById("content").innerHTML=html;
 }
 
 function showGroupAparato(g,a){
- setBack(`showGroup('${g}')`);
+ setBack(`showGroup('${g.replace(/'/g,"\\'")}')`);
  let atletas=dataApp.filter(x=>x.grupo==g);
  let set=new Set();
  atletas.forEach(at=>{
-   at.aparatos[a].forEach(e=>set.add(e.nombre));
+   (at.aparatos[a]||[]).forEach(e=>set.add(e.nombre));
  });
  let html="<div class='list'>";
  set.forEach(e=>{
@@ -88,7 +127,7 @@ function showAthlete(i){
 
 function showAthleteAparato(i,ap){
  setBack(`showAthlete(${i})`);
- let lista=dataApp[i].aparatos[ap];
+ let lista=dataApp[i].aparatos[ap]||[];
  let html="<div class='list'>";
  lista.forEach(e=>{
    let id=dataApp[i].nombre+"-"+ap+"-"+e.nombre;
@@ -97,3 +136,5 @@ function showAthleteAparato(i,ap){
  html+="</div>";
  document.getElementById("content").innerHTML=html;
 }
+
+init();

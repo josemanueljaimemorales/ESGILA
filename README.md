@@ -19,3 +19,14 @@ El módulo Normativos está físicamente dentro de `modulos/normativos/` y no en
 
 ### Enlace a archivos de planificación y horarios
 El botón usa `cliente/config.js` → `onedrive` para abrir el enlace externo de OneDrive en una nueva pestaña.
+
+
+### Fuente de datos de módulos
+
+Los módulos que dependen de Excel leen directamente el archivo que está dentro de su propia carpeta:
+
+- `modulos/rutinas/Excel_Solo_Valores.xlsx`
+- `modulos/gav-training/trabajo_gav.xlsx`
+- `modulos/normativos/NORMATIVOS_ESGILA.xlsx`
+
+Para actualizar datos, reemplaza el Excel correspondiente en el repositorio y recarga la aplicación.

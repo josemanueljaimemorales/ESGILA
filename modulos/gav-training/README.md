@@ -1,42 +1,9 @@
-# GAV App
+# GAV Training — ESGILA
 
-## 📌 Archivo Excel requerido
+Este módulo está contenido físicamente dentro del repositorio del cliente.
 
-Debe llamarse EXACTAMENTE:
-
-👉 trabajo_gav.xlsx
-
-## 📊 Formato:
-
-Columnas:
-NOMBRE | NIVEL | GRUPO | PISO | ARZON | ANILLOS | SALTO | PARALELAS | FIJA
-
-Cada celda de aparato debe tener saltos de línea:
-ejemplo:
-rodada
-flic flac
-mortal
-
----
-
-## 🔄 Cómo actualizar la app
-
-1. Edita tu Excel (trabajo_gav.xlsx)
-2. Convierte a JSON (puedes pedírselo a ChatGPT)
-3. Reemplaza data.json en el proyecto
-
----
-
-## 🎯 Logo
-
-Pon tu logo en la raíz con nombre:
-
-👉 logo.png
-
----
-
-## 🚀 Uso en GitHub
-
-1. Sube todo a un repositorio
-2. Activa GitHub Pages
-3. Listo
+- `index.html`: interfaz del módulo.
+- `trabajo_gav.xlsx`: **fuente principal de datos** que lee la aplicación al cargar.
+- `data.json`: respaldo histórico; la aplicación ya no lo usa como fuente principal.
+- `../../cliente/xlsx-reader.js`: lector XLSX local, sin dependencia externa.
+- Si modificas nombres, niveles, grupos o ejercicios en `trabajo_gav.xlsx` y reemplazas el archivo en GitHub, GAV Training leerá los nuevos datos al volver a cargar.
