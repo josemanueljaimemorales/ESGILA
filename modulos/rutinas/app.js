@@ -1,31 +1,57 @@
 let data = [];
 let NP = {};
 let OBL = [];
+let clubAthletes = new Set();
 
 const screen = document.getElementById("screen");
 
 async function loadExcel(){
-const res = await fetch("Excel_Solo_Valores.xlsx");
+const res = await fetch("Excel_Solo_Valores.xlsx?"+Date.now());
+if(!res.ok) throw new Error("No se encontró Excel_Solo_Valores.xlsx");
 const buffer = await res.arrayBuffer();
 const wb = XLSX.read(buffer);
-
-data = XLSX.utils.sheet_to_json(wb.Sheets["BASEAPPRUTINAS"]);
-const npSheet = XLSX.utils.sheet_to_json(wb.Sheets["NP"]);
-OBL = XLSX.utils.sheet_to_json(wb.Sheets["OBLIGATORIOS"]);
+clubAthletes = await loadClubAthletes();
+data = XLSX.utils.sheet_to_json(wb.Sheets["BASEAPPRUTINAS"] || { });
+const npSheet = XLSX.utils.sheet_to_json(wb.Sheets["NP"] || { });
+OBL = [];
+data = data.filter(r=>clubAthletes.has(String(r["ATLETA"]||"").trim().toUpperCase()));
 
 npSheet.forEach(r=>{
 const keys = Object.keys(r);
 const name = (r[keys[0]]||"").toString().trim().toUpperCase();
-if(name) NP[name]=r;
+if(name && clubAthletes.has(name)) NP[name]=r;
 });
 
 showHome();
 }
 
+async function loadClubAthletes(){
+  const names=new Set();
+  const sources=["../gav-training/trabajo_gav.xlsx","../normativos/NORMATIVOS_ESGILA.xlsx"];
+  for(const url of sources){
+    try{
+      const r=await fetch(url+"?"+Date.now());
+      if(!r.ok) continue;
+      const b=await r.arrayBuffer();
+      const w=XLSX.read(b,{type:"array"});
+      if(url.includes("trabajo_gav")){
+        const rows=XLSX.utils.sheet_to_json(w.Sheets[w.SheetNames[0]],{header:1,defval:""});
+        const h=(rows[0]||[]).map(v=>String(v).trim().toUpperCase());
+        const i=h.indexOf("NOMBRE");
+        if(i>=0) rows.slice(1).forEach(row=>{const n=String(row[i]||"").trim().toUpperCase();if(n)names.add(n);});
+      }else{
+        const rows=XLSX.utils.sheet_to_json(w.Sheets["NORMATIVOS"],{header:1,defval:""});
+        (rows[0]||[]).slice(2).forEach(v=>{const n=String(v||"").trim().toUpperCase();if(n)names.add(n);});
+      }
+    }catch(e){console.warn("No se pudo leer padrón ESGILA",url,e)}
+  }
+  return names;
+}
+
 function showHome(){
 screen.innerHTML = `
 <div class="homeTitle">
-  <div class="eyebrow">ÁGUILAS KC</div>
+  <div class="eyebrow"><span data-cliente-name>ESGILA</span></div>
   <h1>RUTINAS</h1>
   <p>Gimnasia Artística Varonil</p>
 </div>
@@ -40,15 +66,8 @@ screen.innerHTML = `
     <span class="cardArrow">›</span>
   </div>
 
-  <div class="button homeCard mandatory" onclick="showObligatorios()">
-    <span class="cardIcon">O</span>
-    <span class="cardText">
-      <strong>Obligatorios</strong>
-      <small>Elementos obligatorios por nivel</small>
-    </span>
-    <span class="cardArrow">›</span>
-  </div>
 </div>
+${data.length===0 ? `<div class="dataNotice">El archivo de rutinas actual no contiene atletas ESGILA. Sustituye <b>Excel_Solo_Valores.xlsx</b> por el Excel de rutinas de ESGILA para mostrar sus rutinas.</div>` : ``}
 `;
 }
 
@@ -137,40 +156,6 @@ html+=`<tr>
 });
 
 html += "</table>";
-screen.innerHTML = html;
-}
-
-function showObligatorios(){
-const names = OBL.map(r=>r[Object.keys(r)[0]]);
-screen.innerHTML = `<div class="back" onclick="showHome()">⬅️</div>`;
-names.forEach(n=>{
-screen.innerHTML += `<div class="button" onclick="showObligatorioDetalle('${n}')">${n}</div>`;
-});
-}
-
-function showObligatorioDetalle(name){
-const r = OBL.find(x=>x[Object.keys(x)[0]]===name);
-
-const hongoKey = Object.keys(r).find(k =>
-k.toUpperCase().includes("HONGO") || k.toUpperCase().includes("ARZON")
-);
-
-const hongoValue = hongoKey ? r[hongoKey] : "-";
-
-let html = `<div class="back" onclick="showObligatorios()">⬅️</div>`;
-html += `<h2>${name}</h2>`;
-html += `<div class="np">Nivel: ${r["NIVEL"]}</div>`;
-
-html += `<table class="table">
-<tr><th>Aparato</th><th>Nota</th></tr>
-<tr><td>Piso</td><td>${r["PISO"]}</td></tr>
-<tr><td>Hongo</td><td>${hongoValue}</td></tr>
-<tr><td>Anillo</td><td>${r["ANILLO"]}</td></tr>
-<tr><td>Salto</td><td>${r["SALTO"]}</td></tr>
-<tr><td>Paralela</td><td>${r["PARALELA"]}</td></tr>
-<tr><td>Fija</td><td>${r["FIJA"]}</td></tr>
-</table>`;
-
 screen.innerHTML = html;
 }
 

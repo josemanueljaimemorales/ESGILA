@@ -1,6 +1,6 @@
 let data=[];
-const PASSWORD = "jmjm0808";
 let listaActual=[];
+let clubAthletes=[];
 
 function render(html){
 document.getElementById('app').innerHTML = html;
@@ -24,7 +24,45 @@ if(!res.ok){
 const buf=await res.arrayBuffer();
 const wb=XLSX.read(buf);
 data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
+await loadClubAthletes();
+renderAthletes();
 home(true);
+}
+
+async function loadClubAthletes(){
+  const names=new Map();
+  const urls=[
+    '../gav-training/trabajo_gav.xlsx',
+    '../normativos/NORMATIVOS_ESGILA.xlsx'
+  ];
+  for(const url of urls){
+    try{
+      const r=await fetch(url+'?'+Date.now());
+      if(!r.ok) continue;
+      const b=await r.arrayBuffer();
+      const w=XLSX.read(b,{type:'array'});
+      if(url.includes('trabajo_gav')){
+        const sh=w.Sheets[w.SheetNames[0]];
+        const rows=XLSX.utils.sheet_to_json(sh,{header:1,defval:''});
+        const h=(rows[0]||[]).map(v=>String(v).trim().toUpperCase());
+        const idx=h.indexOf('NOMBRE');
+        if(idx>=0) rows.slice(1).forEach(row=>{const n=String(row[idx]||'').trim(); if(n && !names.has(n.toUpperCase())) names.set(n.toUpperCase(),n);});
+      }else{
+        const sh=w.Sheets['NORMATIVOS'];
+        const rows=XLSX.utils.sheet_to_json(sh,{header:1,defval:''});
+        (rows[0]||[]).slice(2).forEach(v=>{const n=String(v||'').trim(); if(n) names.add(n);});
+      }
+    }catch(e){ console.warn('No se pudo leer lista de atletas ESGILA',url,e); }
+  }
+  clubAthletes=[...names.values()].sort((a,b)=>a.localeCompare(b,'es'));
+}
+
+function renderAthletes(){
+  const box=document.querySelector('.atletas');
+  if(!box) return;
+  box.innerHTML=clubAthletes.length
+    ? clubAthletes.map(n=>`<button onclick="seleccionarAtleta('${String(n).replace(/\\/g,'\\\\').replace(/'/g,"\\'") }')">${n}</button>`).join('')
+    : '<div class="empty-athletes">No se encontraron atletas ESGILA.</div>';
 }
 
 function home(first=false){
@@ -291,21 +329,15 @@ render(`
 // ===== REPORTE =====
 function verReporte(){
 
-let pass = prompt("Ingresa la contraseña");
-
-if(pass !== PASSWORD){
-  alert("Contraseña incorrecta");
-  return;
-}
-
 db.collection("registros").get().then(snap=>{
 
 let data = {};
+const permitidos = new Set(clubAthletes);
 
 snap.forEach(d=>{
  let r = d.data();
-
  let atleta = r.atleta;
+ if(!permitidos.has(atleta)) return;
  let dia = r.dia;
  let semana = r.semana || "1";
 
