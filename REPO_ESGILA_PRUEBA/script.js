@@ -2,7 +2,6 @@ const MODULES={
   basicos:'modulos/basicos/index.html',
   sistemas:'modulos/sistemas/index.html',
   fuerza:'modulos/fuerza/index.html',
-  'fuerza-fig':'modulos/fuerza-fig/index.html',
   rutinas:'modulos/rutinas/index.html',
   cargas:'modulos/cargas/index.html',
   'gav-training':'modulos/gav-training/index.html'
