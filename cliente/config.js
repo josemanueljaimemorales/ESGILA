@@ -13,5 +13,6 @@ window.CLIENTE = {
     acento: "#ed1687"
   },
   calendario: "",
+  // Pega aquí el enlace real de OneDrive para "ENLACE A ARCHIVOS DE PLANIFICACIÓN Y HORARIOS".
   onedrive: ""
 };
