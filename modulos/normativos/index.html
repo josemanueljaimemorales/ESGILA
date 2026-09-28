@@ -265,6 +265,7 @@ async function downloadExcel(){
     }
 
     const uniqueCount=shared.length;
+    sst.setAttribute("count",String(uniqueCount));
     sst.setAttribute("uniqueCount",String(uniqueCount));
     workbookZip.file("xl/sharedStrings.xml",serializer.serializeToString(ssDoc));
     workbookZip.file("xl/worksheets/sheet1.xml",serializer.serializeToString(sheetDoc));
