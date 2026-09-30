@@ -5,7 +5,8 @@ const MODULES={
   rutinas:'modulos/rutinas/index.html',
   cargas:'modulos/cargas/index.html',
   'gav-training':'modulos/gav-training/index.html',
-  normativos:'modulos/normativos/index.html'
+  normativos:'modulos/normativos/index.html',
+  'plan-anual':'modulos/plan-anual/index.html'
 };
 const viewer=document.getElementById('viewer');
 const frame=document.getElementById('frame');
